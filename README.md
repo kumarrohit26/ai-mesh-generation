@@ -6,7 +6,7 @@ create new environment
 
 activate environment
 
-```conda activte venv/```
+```conda activate venv/```
 
 Install required packages
 
