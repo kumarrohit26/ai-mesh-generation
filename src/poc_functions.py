@@ -14,16 +14,18 @@ import open3d as o3d
 
 def calculate_edges():
     # Load the binary image (black for elements, white for background)
-    image = cv2.imread('output/tiles/test_img2.png', cv2.IMREAD_GRAYSCALE)
+    image = cv2.imread('output/tiles/Microstrip_Coupler_3_5.png', cv2.IMREAD_GRAYSCALE)
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    print(contours)
+    #print(contours)
     total_length = sum(cv2.arcLength(contour, closed=True) for contour in contours)
     print("Total length of element boundaries:", total_length)
+
+
 
 def calculate_edges2():
 
     #images = ['test_img1.png', 'test_img2.png', 'test_img3.png', 'test_img4.png', 'test_img5.png']
-    images = ['ppt1.png', 'ppt2.png', 'ppt3.png']
+    images = ['Microstrip_Coupler_3_5.png']
     for pic in images:
         # Load the binary image (black for elements, white for background)
         image = io.imread('output/tiles/{pic}'.format(pic=pic), as_gray=True)
@@ -70,6 +72,32 @@ def calculate_edges2():
     #print("Perimeter of the object:", perimeter)
 
 #calculate_edges2()
+
+def calculate_edges3(image_path):
+
+    # Load the binary image (replace 'your_image.png' with your image file)
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+    # Invert the binary image
+    inverted_image = cv2.bitwise_not(image)
+    
+    # Find contours in the binary image
+    contours, _ = cv2.findContours(inverted_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Ensure that at least one contour was found
+    if len(contours) > 0:
+        # Get the largest contour (assuming it corresponds to the object)
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Calculate the perimeter of the largest contour
+        perimeter = cv2.arcLength(largest_contour, closed=True)
+        
+    else:
+        perimeter = 0
+    
+    print(f"Perimeter of the object: {perimeter}")
+
+calculate_edges3()
 
 def calculate_disjoint_image():
     # Load the binary image (black for objects, white for background)
@@ -191,7 +219,7 @@ def rotate_stl_image2():
     rot_matrix = np.array([
         [np.cos(angle_radians), -np.sin(angle_radians), 0],
         [np.sin(angle_radians), np.cos(angle_radians), 0],
-        [0, 0, 1]
+        axis_of_rotation
     ], dtype=np.float64)
 
     # Get mesh vertices as a NumPy array
@@ -239,16 +267,77 @@ def check_image_size():
 
 def rotate_image():
     # Open the JPG image file
-    image = Image.open('data/images/Microstrip_Coupler_mesh.png')
-
+    image = Image.open('data/images/Microstrip_Coupler.png')
+    angle_of_rtation = 45
     # Rotate the image by 45 degrees
-    rotated_image = image.rotate(45, expand=True)
+    rotated_image = image.rotate(angle_of_rtation, expand=True)
 
     # Save the rotated image to a new file
-    rotated_image.save('Microstrip_Coupler_mesh_rotated_image.png')
+    rotated_image.save(f'data/images/Microstrip_Coupler_{angle_of_rtation}.png')
 
     # Close the original and rotated images
     image.close()
     rotated_image.close()
 
-rotate_stl_image()
+#rotate_stl_image()
+
+def convert_to_white_blue():
+    image = Image.open('data/images/Microstrip_Coupler.png')
+
+    # Convert the image to RGB mode (if it's not already)
+    image = image.convert('RGB')
+
+    # Get the image dimensions
+    width, height = image.size
+
+    # Define the blue color (you can use other color representations as well)
+    blue_color = (0, 0, 255)  # (R, G, B)
+
+    # Iterate through each pixel in the image
+    for x in range(width):
+        for y in range(height):
+            pixel = image.getpixel((x, y))
+            
+            # Check if the pixel is not white
+            if pixel != (255, 255, 255):
+                # Set the pixel color to blue
+                image.putpixel((x, y), blue_color)
+
+    # Save the modified image
+    image.save('data/images/Microstrip_Coupler.png')
+
+#convert_to_white_blue()
+#rotate_image()
+
+def has_black_pixel():
+    # Load the image
+    image = Image.open('output/tiles/Microstrip_Coupler_45_1_5.png')
+
+    # Convert the image to RGB mode (if it's not already)
+    image = image.convert('RGB')
+
+    # Get the image dimensions
+    width, height = image.size
+
+    # Initialize a flag to check for black color
+    has_black_color = False
+
+    # Iterate through each pixel in the image
+    for x in range(width):
+        for y in range(height):
+            pixel = image.getpixel((x, y))
+            
+            # Check if the pixel is black (RGB values are 0, 0, 0)
+            if pixel == (0, 0, 0):
+                has_black_color = True
+                break  # No need to continue checking once black color is found
+        if has_black_color:
+            break  # No need to continue checking once black color is found
+
+    # Check the flag to determine if black color was found
+    if has_black_color:
+        print("The image contains black color.")
+    else:
+        print("The image does not contain black color.")
+
+#has_black_pixel()

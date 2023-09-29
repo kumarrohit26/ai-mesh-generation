@@ -2,7 +2,7 @@ from PIL import Image
 import numpy as np
 import os
 from stl import mesh
-from .get_feature import calculate_edges, calculate_disjoint_image
+from .get_feature import calculate_edges, calculate_disjoint_image, has_black_pixel, calculate_edges_inv
 import csv
 import cv2
 Z_AXIS = 9.9
@@ -18,7 +18,7 @@ class DivideImage:
     
     
     def divide_imagefile(image_path, stl_file_path, tile_size, image_name):
-
+        print(stl_file_path)
         stl_data = mesh.Mesh.from_file(stl_file_path)
         triangles = stl_data.vectors
 
@@ -58,7 +58,7 @@ class DivideImage:
 
         file_exists = os.path.isfile(training_data)
         f = open(training_data, 'a')
-        header = ['name','len_of_boundry','tile_size', 'disjoint_image','num_triangles']
+        header = ['name','len_of_boundry','len_of_boundry_inv','tile_size', 'disjoint_image','num_triangles']
         writer = csv.writer(f)
 
         if not file_exists:
@@ -79,22 +79,40 @@ class DivideImage:
                             break
                 try:
                     num_triangles = len(triangle_section_map[(row, col)])
-                    print('{row},{col} - {length}'.format(row=row, col=col, length=num_triangles), end=' | ')
+                    #print('{row},{col} - {length}'.format(row=row, col=col, length=num_triangles), end=' | ')
                 except KeyError:
                     num_triangles = 0
-                    print("Data not available", end='|')
-                
+                    #print('{row},{col} - {length}'.format(row=row, col=col, length=num_triangles), end=' | ')
                 # Crop the tile from the image
-                tile = rgb_im.crop((left*x_ratio, upper*y_ratio, right*x_ratio, lower*y_ratio))
-                
-                # Save the tile with a unique name
-                filename = f'{image_name}_{row}_{col}.png'
-                tile.save(os.path.join('output/tiles', filename))
-                len_of_boundry = calculate_edges(image_path = 'output/tiles/{filename}'.format(filename=filename), tile_size = tile_size*x_ratio)
-                num_of_disjoint_image = calculate_disjoint_image(image_path = 'output/tiles/{filename}'.format(filename=filename))
-                num_pixels = (tile_size*x_ratio) * (tile_size * y_ratio)
-                data = [filename, len_of_boundry, tile_size*x_ratio, num_of_disjoint_image, num_triangles]
-                writer.writerow(data)
+                crop_left = left*x_ratio
+                crop_right = right*x_ratio
+                crop_upper = (num_rows-1-row)*y_ratio*tile_size
+                crop_lower = (num_rows-row)*y_ratio*tile_size
+                tile = rgb_im.crop((crop_left, crop_upper, crop_right, crop_lower))
 
-            print()
+                if num_triangles > 0 and not has_black_pixel(tile):
+                    tile = tile.convert('RGB')
+
+                    # Get the dimensions of the tile
+                    width, height = tile.size
+
+                    # Iterate through each pixel in the cropped tile and set non-white pixels to black
+                    for x in range(width):
+                        for y in range(height):
+                            pixel = tile.getpixel((x, y))
+                            if pixel != (255, 255, 255):  # Check if the pixel is not white
+                                tile.putpixel((x, y), (0, 0, 0))  # Set non-white pixel to black
+
+                    # Save the tile with a unique name
+                    
+                    filename = f'{image_name}_{row}_{col}.png'
+                    tile.save(os.path.join('output/tiles', filename))
+                    len_of_boundry = calculate_edges(image_path = 'output/tiles/{filename}'.format(filename=filename), tile_size = tile_size*x_ratio)
+                    len_of_boundry_inv = calculate_edges_inv(image_path = 'output/tiles/{filename}'.format(filename=filename))
+                    num_of_disjoint_image = calculate_disjoint_image(image_path = 'output/tiles/{filename}'.format(filename=filename))
+                    num_pixels = (tile_size*x_ratio) * (tile_size * y_ratio)
+                    data = [filename, len_of_boundry,len_of_boundry_inv, tile_size*x_ratio, num_of_disjoint_image, num_triangles]
+                    writer.writerow(data)
+
+            #print()
         f.close()

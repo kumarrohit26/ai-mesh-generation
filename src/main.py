@@ -9,17 +9,21 @@ from stl import mesh
 import tripy
 import pyvista as pv
 from PIL import Image
+from utils.get_feature import convert_to_white_blue, prepare_images_to_generate_test_data
 
 
-print(os.path)
-image_path = 'data/images/'
-stl_file_path = 'data/stl/'
-image_files = ['rotated_image_45']
+
+image_path = 'data\\rotated_image'
+stl_path = 'data\\rotated_stl'
+
 tile_size = 20
 
-for image in image_files:
-    image_file = image_path+image+'.png'
-    stl_file = stl_file_path+image+'.stl'
-    #print(image_file)
-    #print(stl_file)
-    DivideImage.divide_imagefile(image_file, stl_file, tile_size, image)
+#prepare_images_to_generate_test_data()
+
+
+for image in os.listdir(image_path):
+    image_file_name, _ = os.path.splitext(image)
+    stl_file_name = f"{image_file_name}.stl"
+    image_file_path = os.path.join(image_path, image)
+    stl_file_path = os.path.join(stl_path, stl_file_name)
+    DivideImage.divide_imagefile(image_file_path, stl_file_path, tile_size, image_file_name)
