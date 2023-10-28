@@ -1,13 +1,22 @@
+import os
+import cv2
+import shutil
+import numpy as np
+import open3d as o3d
+from PIL import Image
 import skimage.measure
 from skimage import io, color, filters, morphology, measure, util
-import numpy as np
-from PIL import Image
-import os
-import open3d as o3d
-import shutil
-import cv2
+from src.constants.image_constant import *
 
-def calculate_edges(image_path, tile_size):
+def categorize(value):
+    if 0 <= value <= 100:
+        return 0
+    elif 101 <= value <= 200:
+        return 1
+    else:
+        return 2
+
+def calculate_edges(image_path):
         
     # Load the binary image (black for elements, white for background)
     image = io.imread(image_path, as_gray=True)   
@@ -114,8 +123,6 @@ def has_black_pixel(image):
     return has_black_color
 
 def rotate_image_and_stl(image_path, stl_path, image_filename, stl_filename, angles):
-    rotated_image_path = 'data/rotated_image'
-    rotated_stl_path = 'data/rotated_stl'
 
     for angle in angles:
         # Load the STL file
@@ -155,7 +162,7 @@ def rotate_image_and_stl(image_path, stl_path, image_filename, stl_filename, ang
         mesh.vertices = o3d.utility.Vector3dVector(translated_vertices)
 
         # Save the rotated mesh to a new STL file
-        o3d.io.write_triangle_mesh(f'{rotated_stl_path}/{stl_filename}_{angle}.stl', mesh)
+        o3d.io.write_triangle_mesh(f'{ROTATED_STL_PATH}/{stl_filename}_{angle}.stl', mesh)
 
         # Open the JPG image file
         image = Image.open(image_path)
@@ -164,7 +171,7 @@ def rotate_image_and_stl(image_path, stl_path, image_filename, stl_filename, ang
         rotated_image = image.rotate(angle, expand=True)
 
         # Save the rotated image to a new file
-        rotated_image.save(f'{rotated_image_path}/{image_filename}_{angle}.png')
+        rotated_image.save(f'{ROTATED_IMAGE_PATH}/{image_filename}_{angle}.png')
 
         # Close the original and rotated images
         image.close()
@@ -177,21 +184,17 @@ def copy_file(source_file, destination_folder):
     shutil.copy(source_file, destination_folder)
 
 def prepare_images_to_generate_test_data():
-    base_image_path = 'data\\images'
-    base_stl_file_path = 'data\\stl'
-    angles = [15, 30, 45, 60, 75, 90]
-    rotated_image_path = 'data\\rotated_image'
-    rotated_stl_path = 'data\\rotated_stl'
+    
+    angles = list(range(ANGLE_OF_ROTATION,180, ANGLE_OF_ROTATION))
 
-    for image in os.listdir(base_image_path):
+    for image in os.listdir(BASE_IMAGE_PATH):
         
         file_name, _ = os.path.splitext(image)
         stl_file_name = f"{file_name}.stl"
-        image_path = os.path.join(base_image_path, image)
-        stl_path = os.path.join(base_stl_file_path, stl_file_name)
+        image_path = os.path.join(BASE_IMAGE_PATH, image)
+        stl_path = os.path.join(BASE_STL_FILE_PATH, stl_file_name)
         
         convert_to_white_blue(image_path)
-        copy_file(image_path, os.path.join(rotated_image_path))
-        copy_file(stl_path, os.path.join(rotated_stl_path))
+        copy_file(image_path, os.path.join(ROTATED_IMAGE_PATH))
+        copy_file(stl_path, os.path.join(ROTATED_STL_PATH))
         rotate_image_and_stl(image_path, stl_path, file_name, file_name, angles)
-

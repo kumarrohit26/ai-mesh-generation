@@ -1,8 +1,10 @@
 numpy
+pandas
 matplotlib
 numpy-stl
 opencv-python
-image_slicer
 scikit-image
 tripy
-Pillow
+open3d
+tensorflow
+scikit-learn
