@@ -1,12 +1,11 @@
 from PIL import Image
 import numpy as np
 import os
+import pandas as pd
 from stl import mesh
-from .get_feature import calculate_edges, calculate_disjoint_image, has_black_pixel, calculate_edges_inv, categorize
+from .get_feature import calculate_edges, calculate_disjoint_image, has_black_pixel, calculate_edges_inv, categorize, calculate_neighbours, get_category
 import csv
-# import cv2
 from src.constants.image_constant import TRAINING_DATA_FILE, Z_AXIS_TOLERANCE, TRAINING_IMAGE_PATH, TRAINING_DATA_FILE_PATH, TRAINING_DATA_FILE
-Z_AXIS = 9.9
 
 
 def calculate_area_of_triangle(triangle_vertices):
@@ -16,8 +15,14 @@ def calculate_area_of_triangle(triangle_vertices):
     area = 0.5 * np.linalg.norm(cross_product)
     return area
 
+def resize_image(image, target_height):
+    height_percent = target_height / float(image.size[1])
+    target_width = int(float(image.size[0]) * float(height_percent))
+    resized_image = image.resize((target_width, target_height))
+    return resized_image
 
-def divide_imagefile(image_path, stl_file_path, tile_size, image_name):
+
+def divide_imagefile(image_path, stl_file_path, tile_size, image_name, z_axis_data):
     
     # Load the STL file
     stl_data = mesh.Mesh.from_file(stl_file_path)
@@ -31,8 +36,11 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name):
     # made sure that the rotated stl image is always in 1st quadrant touching x and y axis.
     max_x = np.max(all_vertices[:, 0])
     max_y = np.max(all_vertices[:, 1])
-    max_z = np.max(all_vertices[:, 2])
-    max_z = Z_AXIS_TOLERANCE*max_z
+
+    z_top = z_axis_data['z_top']
+    z_bottom = z_axis_data['z_bottom']
+    height = z_top - z_bottom
+    Z_AXIS = z_bottom + (Z_AXIS_TOLERANCE*height)
 
     z_axis_triangles = []
 
@@ -47,14 +55,16 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name):
     z_axis_triangles = np.array(z_axis_triangles)
 
     image = Image.open(image_path)
-    rgb_im = image.convert('RGB')
-    image_width, image_height = rgb_im.size
+    #rgb_im = image.convert('RGB')
 
+    resized_image = resize_image(image, 2000)
+    image_width, image_height = resized_image.size
+    
     x_ratio = int(image_width / max_x)
     y_ratio = int(image_height / max_y)
 
-    num_cols = image_width // (tile_size * x_ratio)
-    num_rows = image_height // (tile_size * y_ratio)
+    num_cols = image_width // tile_size
+    num_rows = image_height // tile_size
 
     if not os.path.exists(TRAINING_DATA_FILE_PATH):
         os.makedirs(TRAINING_DATA_FILE_PATH)
@@ -63,20 +73,23 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name):
         os.makedirs(TRAINING_IMAGE_PATH)
 
     csv_file_path = os.path.join(TRAINING_DATA_FILE_PATH, TRAINING_DATA_FILE)
-    file_exists = os.path.isfile(csv_file_path)
-    f = open(csv_file_path, 'a')
-    header = ['name','len_of_boundry','len_of_boundry_inv','tile_size', 'disjoint_image','num_triangles','image_category']
-    writer = csv.writer(f)
+    
+    name = list()
+    len_of_boundry = list()
+    len_of_boundry_inv = list()
+    tile_size_list = list()
+    disjoint_image = list()
+    final_num_triangles = list()
+    image_category = list()
+    category = list()
 
-    if not file_exists:
-        writer.writerow(header)
-
+    
     for row in range(num_rows):
         for col in range(num_cols):
-            left = col * tile_size
-            upper = row * tile_size
-            right = left + tile_size
-            lower = upper + tile_size
+            left = col * tile_size/x_ratio
+            upper = row * tile_size/y_ratio
+            right = left + tile_size/x_ratio
+            lower = upper + tile_size/y_ratio
             triangle_section_map = {}
             for i in z_axis_triangles:
                 for vertex in i:
@@ -86,16 +99,14 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name):
                         break
             try:
                 num_triangles = len(triangle_section_map[(row, col)])
-                #print('{row},{col} - {length}'.format(row=row, col=col, length=num_triangles), end=' | ')
             except KeyError:
                 num_triangles = 0
-                #print('{row},{col} - {length}'.format(row=row, col=col, length=num_triangles), end=' | ')
-            # Crop the tile from the image
-            crop_left = left*x_ratio
-            crop_right = right*x_ratio
-            crop_upper = (num_rows-1-row)*y_ratio*tile_size
-            crop_lower = (num_rows-row)*y_ratio*tile_size
-            tile = rgb_im.crop((crop_left, crop_upper, crop_right, crop_lower))
+
+            crop_left = col * tile_size
+            crop_right = crop_left + tile_size
+            crop_upper = (num_rows-1-row)*(tile_size)
+            crop_lower = crop_upper + (tile_size)
+            tile = resized_image.crop((crop_left, crop_upper, crop_right, crop_lower))
 
             if num_triangles > 0 and not has_black_pixel(tile):
                 tile = tile.convert('RGB')
@@ -113,13 +124,34 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name):
                 # Save the tile with a unique name
                 
                 filename = f'{image_name}_{row}_{col}.png'
+                
                 tile.save(os.path.join(TRAINING_IMAGE_PATH, filename))
                 output_image_path = f'{TRAINING_IMAGE_PATH}/{filename}'
-                len_of_boundry = calculate_edges(image_path = output_image_path)
-                len_of_boundry_inv = calculate_edges_inv(image_path = output_image_path)
-                num_of_disjoint_image = calculate_disjoint_image(image_path = output_image_path)
-                num_pixels = (tile_size*x_ratio) * (tile_size * y_ratio)
-                image_category = categorize(num_triangles)
-                data = [filename, len_of_boundry,len_of_boundry_inv, tile_size*x_ratio, num_of_disjoint_image, num_triangles, image_category]
-                writer.writerow(data)
-    f.close()
+
+                name.append(filename)
+                len_of_boundry.append(calculate_edges(image_path = output_image_path))
+                len_of_boundry_inv.append(calculate_edges_inv(image_path = output_image_path))
+                disjoint_image.append(calculate_disjoint_image(image_path = output_image_path))
+                #num_pixels = (tile_size*x_ratio) * (tile_size * y_ratio)
+                tile_size_list.append(tile_size*x_ratio)
+                image_category.append(categorize(num_triangles))
+                final_num_triangles.append(num_triangles)
+                category.append(get_category(num_triangles))
+
+    features_df = pd.DataFrame({
+                    'name': name,
+                    'len_of_boundry': len_of_boundry,
+                    'len_of_boundry_inv': len_of_boundry_inv,
+                    'disjoint_image': disjoint_image,
+                    'tile_size': tile_size_list,
+                    'num_triangles': final_num_triangles,
+                    'image_category': image_category
+                })
+    if features_df.shape[0] > 0:
+        features_df['neighbours'] = features_df.apply(lambda row: calculate_neighbours(row, num_rows, num_cols, image_name, features_df), axis=1)
+
+        if not os.path.exists(csv_file_path):
+            features_df.to_csv(csv_file_path, index=False)
+        else:
+            features_df.to_csv(csv_file_path, mode='a', header=False, index=False)
+

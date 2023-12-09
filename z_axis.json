@@ -1,0 +1,26 @@
+{
+    "planar_device" : {
+        "z_top": 25,
+        "z_bottom": 0
+    },
+    "microstrip_radial_stub" : {
+        "z_top": 0.635,
+        "z_bottom": 0
+    },
+    "planar_filter" : {
+        "z_top": 0,
+        "z_bottom": -31
+    },
+    "branch_line_coupler" : {
+        "z_top": 0,
+        "z_bottom": -0.794
+    },
+    "low_pass_filter" : {
+        "z_top": 0,
+        "z_bottom": -0.2
+    },
+    "microstrip_coupler" : {
+        "z_top": 10,
+        "z_bottom": 0
+    }
+}

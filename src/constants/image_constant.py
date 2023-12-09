@@ -1,6 +1,7 @@
 ANGLE_OF_ROTATION = 5
-TILE_SIZE = 20
+TILE_SIZE = 250
 Z_AXIS_TOLERANCE = 0.9
+Z_AXIS_DATA_FILE_PATH = 'z_axis.json'
 
 BASE_IMAGE_PATH = 'data\\images'
 BASE_STL_FILE_PATH = 'data\\stl'

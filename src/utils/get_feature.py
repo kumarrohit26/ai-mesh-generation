@@ -185,7 +185,7 @@ def copy_file(source_file, destination_folder):
 
 def prepare_images_to_generate_test_data():
     
-    angles = list(range(ANGLE_OF_ROTATION,180, ANGLE_OF_ROTATION))
+    angles = list(range(0,180, ANGLE_OF_ROTATION))
 
     for image in os.listdir(BASE_IMAGE_PATH):
         
@@ -195,6 +195,78 @@ def prepare_images_to_generate_test_data():
         stl_path = os.path.join(BASE_STL_FILE_PATH, stl_file_name)
         
         convert_to_white_blue(image_path)
-        copy_file(image_path, os.path.join(ROTATED_IMAGE_PATH))
-        copy_file(stl_path, os.path.join(ROTATED_STL_PATH))
+        #copy_file(image_path, os.path.join(ROTATED_IMAGE_PATH))
+        #copy_file(stl_path, os.path.join(ROTATED_STL_PATH))
         rotate_image_and_stl(image_path, stl_path, file_name, file_name, angles)
+
+def move_in_first_quad(stl_path, stl_file_name):
+
+    # Load the STL file
+    mesh = o3d.io.read_triangle_mesh(stl_path)
+
+    # Compute normals for the mesh
+    mesh.compute_triangle_normals()
+
+    vertices = np.asarray(mesh.vertices)
+    # Compute the translation required to move the mesh back into the 1st quadrant
+    min_x = np.min(vertices[:, 0])
+    min_y = np.min(vertices[:, 1])
+    translation_vector = [-min_x, -min_y, 0]
+
+    # Translate the rotated vertices
+    translated_vertices = vertices + translation_vector
+
+    # max_z = np.max(translated_vertices[:, 2])
+    # print(f'Max z after translation : {max_z}')
+
+    # Update the mesh vertices with the rotated vertices
+    mesh.vertices = o3d.utility.Vector3dVector(translated_vertices)
+
+    # Save the rotated mesh to a new STL file
+    o3d.io.write_triangle_mesh('moved_stl_file.stl', mesh)
+
+def calculate_neighbours(row, num_rows, num_cols, image_name, df):
+    
+    #if row['disjoint_image'] == 0:
+    # Define the neighboring tile coordinates (adjust these based on your tile layout)
+    neighbors = [
+        (-1, -1), (-1, 0), (-1, 1),
+        (0, -1),           (0, 1),
+        (1, -1), (1, 0), (1, 1)
+    ]
+
+    # Initialize a counter for neighbors with nonzero disjoint images
+    neighbor_count = 0
+
+    # Iterate through neighboring tiles
+    for neighbor in neighbors:
+        # Calculate the coordinates of the neighbor
+        rowcol = row['name'].split('.')[0].rsplit('_', 2)
+        #row = rowcol[1]
+        #col = rowcol[2]
+        neighbor_row = int(rowcol[1]) + neighbor[0]
+        neighbor_col = int(rowcol[2]) + neighbor[1]
+
+        neighbour_file_name = f'{image_name}_{neighbor_row}_{neighbor_col}.png'
+        # Check if the neighbor is within the image grid
+        if 0 <= neighbor_row < num_rows and 0 <= neighbor_col < num_cols:
+            # Get the neighbor's data
+            neighbor_data = df[df['name'] == neighbour_file_name]
+            #print(neighbor_data)
+            # Check if the neighbor has nonzero disjoint images
+            if len(neighbor_data.index) !=0:
+                if neighbor_data['disjoint_image'].values[0] > 0:
+                    neighbor_count += 1
+
+    return neighbor_count
+    #else:
+    #    return 0  # No need to check neighbors if disjoint_image is nonzero
+
+def get_category(num_of_triangles):
+    if num_of_triangles <= 100:
+        return 'low'
+    elif num_of_triangles <= 200:
+        return 'medium'
+    else:
+        return 'high'
+    
