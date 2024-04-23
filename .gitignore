@@ -161,5 +161,7 @@ cython_debug/
 
 data
 output
+output_check
 .vs
 *.dot
+num_triangle_category

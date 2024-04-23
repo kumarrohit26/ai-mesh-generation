@@ -6,5 +6,9 @@ opencv-python
 scikit-image
 tripy
 open3d
-tensorflow
+tensorflow==2.10.1
 scikit-learn
+streamlit
+scikeras
+optuna
+numba

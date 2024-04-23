@@ -8,10 +8,10 @@ import skimage.measure
 from skimage import io, color, filters, morphology, measure, util
 from src.constants.image_constant import *
 
-def categorize(value):
-    if 0 <= value <= 100:
+def categorize(value, upper, lower):
+    if 0 <= value <= lower:
         return 0
-    elif 101 <= value <= 200:
+    elif lower < value <= upper:
         return 1
     else:
         return 2
@@ -121,6 +121,32 @@ def has_black_pixel(image):
             break  # No need to continue checking once black color is found
 
     return has_black_color
+
+# def is_all_black(image):
+    
+#     # Convert the image to RGB mode (if it's not already)
+#     image = image.convert('RGB')
+
+#     # Get the image dimensions
+#     width, height = image.size
+
+#     # Iterate through each pixel in the image
+#     for x in range(width):
+#         for y in range(height):
+#             pixel = image.getpixel((x, y))
+
+#             # Check if the pixel is white (RGB values are 0, 0, 0)
+#             if pixel == (255, 255, 255):
+#                 return False
+
+#     return True
+
+def is_all_black(imege):
+    extrema = imege.convert("L").getextrema()
+    if extrema == (0, 0):
+        return True
+    else:
+        return False
 
 def rotate_image_and_stl(image_path, stl_path, image_filename, stl_filename, angles):
 
@@ -262,11 +288,11 @@ def calculate_neighbours(row, num_rows, num_cols, image_name, df):
     #else:
     #    return 0  # No need to check neighbors if disjoint_image is nonzero
 
-def get_category(num_of_triangles):
-    if num_of_triangles <= 100:
-        return 'low'
-    elif num_of_triangles <= 200:
-        return 'medium'
+def get_category(num_of_triangles, upper, lower):
+    if num_of_triangles <= lower:
+        return 0
+    elif num_of_triangles <= upper:
+        return 1
     else:
-        return 'high'
+        return 2
     

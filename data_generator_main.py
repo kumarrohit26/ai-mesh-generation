@@ -7,7 +7,9 @@ import json
 
 def get_z_data(str: str):
     return str.rsplit('_',1)[0]
-# prepare_images_to_generate_test_data()
+
+#prepare_images_to_generate_test_data()
+
 
 f = open(Z_AXIS_DATA_FILE_PATH)
 data = json.load(f)
@@ -18,5 +20,11 @@ for image in os.listdir(ROTATED_IMAGE_PATH):
     z_axis_data = data[get_z_data(image_file_name).lower()]
     image_file_path = os.path.join(ROTATED_IMAGE_PATH, image)
     stl_file_path = os.path.join(ROTATED_STL_PATH, stl_file_name)
-    divide_imagefile(image_file_path, stl_file_path, TILE_SIZE, image_file_name, z_axis_data)
-    print(f"{image_file_name} Processed...")
+    # for TILE_SIZE in TILE_SIZES:
+    #     #print(TILE_SIZE)
+    #     divide_imagefile(image_file_path, stl_file_path, TILE_SIZE, image_file_name, z_axis_data)
+    #     print(f"{image_file_name} Processed with tile size {TILE_SIZE}...")
+    for IMAGE_SIZE in IMAGE_SIZES:
+        #print(TILE_SIZE)
+        divide_imagefile(image_file_path, stl_file_path, TILE_SIZE, image_file_name, z_axis_data, IMAGE_SIZE)
+        print(f"{image_file_name} Processed with image size {IMAGE_SIZE}...")

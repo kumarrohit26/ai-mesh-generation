@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 from stl import mesh
-from .get_feature import calculate_edges, calculate_disjoint_image, has_black_pixel, calculate_edges_inv, categorize, calculate_neighbours, get_category
+from .get_feature import calculate_edges, calculate_disjoint_image, has_black_pixel, calculate_edges_inv, categorize, calculate_neighbours, get_category, is_all_black
 import csv
 from src.constants.image_constant import TRAINING_DATA_FILE, Z_AXIS_TOLERANCE, TRAINING_IMAGE_PATH, TRAINING_DATA_FILE_PATH, TRAINING_DATA_FILE
 
@@ -22,7 +22,7 @@ def resize_image(image, target_height):
     return resized_image
 
 
-def divide_imagefile(image_path, stl_file_path, tile_size, image_name, z_axis_data):
+def divide_imagefile(image_path, stl_file_path, tile_size, image_name, z_axis_data, IMAGE_SIZE):
     
     # Load the STL file
     stl_data = mesh.Mesh.from_file(stl_file_path)
@@ -57,7 +57,7 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name, z_axis_da
     image = Image.open(image_path)
     #rgb_im = image.convert('RGB')
 
-    resized_image = resize_image(image, 2000)
+    resized_image = resize_image(image, IMAGE_SIZE)
     image_width, image_height = resized_image.size
     
     x_ratio = int(image_width / max_x)
@@ -82,6 +82,9 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name, z_axis_da
     final_num_triangles = list()
     image_category = list()
     category = list()
+    triangle_per_100px_list = list()
+    density_category = list()
+    len_of_boundry_per_100px_list = list()
 
     
     for row in range(num_rows):
@@ -123,20 +126,33 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name, z_axis_da
 
                 # Save the tile with a unique name
                 
-                filename = f'{image_name}_{row}_{col}.png'
+                filename = f'{image_name}_{IMAGE_SIZE}_{row}_{col}.png'
                 
                 tile.save(os.path.join(TRAINING_IMAGE_PATH, filename))
                 output_image_path = f'{TRAINING_IMAGE_PATH}/{filename}'
 
+                triangle_per_100px = num_triangles/((tile_size/100.0)**2)
+
                 name.append(filename)
                 len_of_boundry.append(calculate_edges(image_path = output_image_path))
-                len_of_boundry_inv.append(calculate_edges_inv(image_path = output_image_path))
-                disjoint_image.append(calculate_disjoint_image(image_path = output_image_path))
+                lob = calculate_edges_inv(image_path = output_image_path)
+                len_of_boundry_inv.append(lob)
+
+                len_of_boundry_per_100px = lob /(tile_size/100.0)
+
+                len_of_boundry_per_100px_list.append(len_of_boundry_per_100px)
+                di = calculate_disjoint_image(image_path = output_image_path)
+                if di == 0:
+                    if is_all_black(tile):
+                        di = 1
+                disjoint_image.append(di)
                 #num_pixels = (tile_size*x_ratio) * (tile_size * y_ratio)
-                tile_size_list.append(tile_size*x_ratio)
-                image_category.append(categorize(num_triangles))
+                tile_size_list.append(tile_size)
+                image_category.append(categorize(num_triangles, 200, 100))
                 final_num_triangles.append(num_triangles)
-                category.append(get_category(num_triangles))
+                #category.append(get_category(num_triangles))
+                triangle_per_100px_list.append(triangle_per_100px)
+                density_category.append(get_category(triangle_per_100px, 50, 25))
 
     features_df = pd.DataFrame({
                     'name': name,
@@ -145,10 +161,14 @@ def divide_imagefile(image_path, stl_file_path, tile_size, image_name, z_axis_da
                     'disjoint_image': disjoint_image,
                     'tile_size': tile_size_list,
                     'num_triangles': final_num_triangles,
-                    'image_category': image_category
+                    'image_category': image_category,
+                    'triangle_per_100px': triangle_per_100px_list,
+                    'density_category': density_category,
+                    'len_of_boundry_per_100px':len_of_boundry_per_100px_list
                 })
     if features_df.shape[0] > 0:
-        features_df['neighbours'] = features_df.apply(lambda row: calculate_neighbours(row, num_rows, num_cols, image_name, features_df), axis=1)
+        image_name_with_tile = f'{image_name}_{tile_size}'
+        features_df['neighbours'] = features_df.apply(lambda row: calculate_neighbours(row, num_rows, num_cols, image_name_with_tile, features_df), axis=1)
 
         if not os.path.exists(csv_file_path):
             features_df.to_csv(csv_file_path, index=False)
